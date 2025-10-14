@@ -231,6 +231,12 @@ formatText(content) {
         .replace(/right\]/g, ']')
         .replace(/left\(/g, '(')
         .replace(/right\)/g, ')')
+        .replace(/--&gt;/g, '→')
+        .replace(/&gt;/g, '>')
+        // 美化递归过程的显示
+        .replace(/(→)+/g, (match) => {
+          const depth = match.length
+          return '  '.repeat(depth - 1) + '→'})
         
       return cleaned
     },

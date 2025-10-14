@@ -5,9 +5,9 @@
       <!-- 极简头部 -->
       <div class="chat-header">
         <div class="header-content">
-          <div class="app-logo">AI</div>
+          <div class="app-logo">Hu</div>
           <div class="header-info">
-            <h1>智能助手</h1>
+            <h1>助理</h1>
             <span class="status-dot" :class="statusClass"></span>
             <span class="status-text">{{ statusText }}</span>
           </div>
@@ -56,8 +56,8 @@
           <textarea
             v-model="inputText"
             @keydown="handleKeydown"
+            @input="autoResize"
             placeholder="输入消息..."
-            rows="1"
             ref="textInput"
             :disabled="isLoading"
             class="minimal-textarea"
@@ -116,8 +116,18 @@ export default {
       // 添加用户消息
       this.addMessage(userMessage, 'user')
       
-      // 清空输入框
+      // 清空输入框并重置高度
       this.inputText = ''
+      // 重置输入框高度
+      this.$nextTick(() => {
+        const textarea = this.$refs.textInput;
+        if (textarea) {
+          textarea.style.height = 'auto'; // 或者设置为单行高度
+          textarea.style.overflowY = 'hidden'; // 重置滚动条
+          // 如果需要精确控制为单行高度，可以在这里计算并设置
+          // 例如：const lineHeight = ... ; textarea.style.height = lineHeight + 'px';
+        }
+      });
       
       // 更新状态
       this.isTyping = true
@@ -239,7 +249,37 @@ export default {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
         this.sendMessage()
+        // 发送后重置输入框高度
+        this.$nextTick(() => {
+          if (this.$refs.textInput) {
+            this.$refs.textInput.style.height = 'auto'
+          }
+        })
       }
+    },
+
+    autoResize() {
+      this.$nextTick(() => {
+        const textarea = this.$refs.textInput;
+        if (!textarea) return;
+
+        // 单行高度（建议与你CSS里一致）
+        const singleLineHeight = 42;
+        const maxHeight = singleLineHeight * 4; // 最多4行
+        
+        // 如果没有内容，恢复到单行高度
+        if (!this.inputText.trim()) {
+          textarea.style.height = singleLineHeight + 'px';
+          textarea.style.overflowY = 'hidden';
+          return;
+        }
+
+        // 重置高度再测量scrollHeight
+        textarea.style.height = 'auto';
+        const newHeight = Math.min(textarea.scrollHeight, maxHeight);
+        textarea.style.height = newHeight + 'px';
+        textarea.style.overflowY = (textarea.scrollHeight > maxHeight) ? 'auto' : 'hidden';
+      });
     },
 
     clearConversation() {
@@ -261,7 +301,13 @@ export default {
   },
 
   mounted() {
-    this.$refs.textInput?.focus()
+    this.$nextTick(() => {
+      const textarea = this.$refs.textInput;
+      if (textarea) {
+        this.autoResize();
+        textarea.focus();
+      }
+    });
   }
 }
 </script>
@@ -478,9 +524,14 @@ export default {
   resize: none;
   outline: none;
   transition: all 0.2s;
-  max-height: 120px;
-  line-height: 1.4;
   background: #fafafa;
+  box-sizing: border-box;
+
+  /* 🔹 控制行高和初始高度 */
+  line-height: 1.4;
+  height: 42px;         /* 初始高度 = 单行 */
+  max-height: 120px;    /* 最大高度 ≈ 4行 */
+  overflow-y: hidden;   /* 默认不出现滚动条 */
 }
 
 .minimal-textarea:focus {
@@ -498,7 +549,7 @@ export default {
   height: 40px;
   background: #2c3e50;
   border: none;
-  border-radius: 8px;
+  border-radius: 50%;
   color: white;
   cursor: pointer;
   display: flex;
@@ -506,6 +557,12 @@ export default {
   justify-content: center;
   transition: all 0.2s;
   font-size: 16px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.send-btn-minimal:hover:not(:disabled) {
+  background: #34495e;
+  transform: scale(1.05);
 }
 
 .send-btn-minimal:hover:not(:disabled) {

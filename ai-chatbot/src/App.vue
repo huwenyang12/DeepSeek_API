@@ -78,6 +78,7 @@
 
 <script>
 import Message from './components/Message.vue'
+import { DeepSeekService } from './services/deepseek'
 
 export default {
   name: 'App',
@@ -90,7 +91,8 @@ export default {
       inputText: '',
       isTyping: false,
       isLoading: false,
-      statusText: '在线'
+      statusText: '在线',
+      conversationHistory: [] // 存储对话历史用于上下文
     }
   },
   computed: {
@@ -109,17 +111,32 @@ export default {
       if (!this.canSend) return
 
       const content = this.inputText.trim()
+      
+      // 添加用户消息
       this.addMessage(content, 'user')
+      
+      // 清空输入框
+      const userMessage = this.inputText
       this.inputText = ''
       
+      // 更新状态
       this.isTyping = true
       this.isLoading = true
       this.statusText = '思考中'
 
       try {
-        await this.simulateAIResponse(content)
+        // 调用真实的DeepSeek API
+        const response = await DeepSeekService.sendMessage(userMessage, this.conversationHistory)
+        
+        // 添加AI回复
+        this.addMessage(response, 'bot')
+        
+        // 更新对话历史（保持最近的10轮对话）
+        this.updateConversationHistory(userMessage, response)
+        
       } catch (error) {
-        this.addMessage('网络错误，请重试', 'bot')
+        this.addMessage(`抱歉，出现了错误：${error.message}`, 'bot')
+        console.error('API调用失败:', error)
       } finally {
         this.isTyping = false
         this.isLoading = false
@@ -136,27 +153,33 @@ export default {
       }
       
       this.messages.push(message)
+      
+      // 滚动到底部
       this.$nextTick(() => {
         this.scrollToBottom()
       })
     },
 
-    simulateAIResponse(userMessage) {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          const responses = [
-            `收到您的消息："${userMessage}"。`,
-            '这是一个极简风格的AI聊天界面。',
-            '简洁的设计让对话更加专注。',
-            '有什么其他问题我可以帮您解答？'
-          ]
-          const response = responses[Math.floor(Math.random() * responses.length)]
-          this.addMessage(response, 'bot')
-          resolve()
-        }, 1000)
+    updateConversationHistory(userMessage, botResponse) {
+      // 添加用户消息到历史
+      this.conversationHistory.push({
+        role: 'user',
+        content: userMessage
       })
+      
+      // 添加AI回复到历史
+      this.conversationHistory.push({
+        role: 'assistant',
+        content: botResponse
+      })
+      
+      // 保持最近10轮对话（20条消息）
+      if (this.conversationHistory.length > 20) {
+        this.conversationHistory = this.conversationHistory.slice(-20)
+      }
     },
 
+    // 其他方法保持不变...
     handleKeydown(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
@@ -166,10 +189,11 @@ export default {
 
     clearConversation() {
       this.messages = []
-      this.statusText = '已清空'
+      this.conversationHistory = []
+      this.statusText = '对话已清空'
       setTimeout(() => {
         this.statusText = '在线'
-      }, 1500)
+      }, 2000)
     },
 
     scrollToBottom() {

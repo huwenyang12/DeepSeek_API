@@ -92,7 +92,8 @@ export default {
       isTyping: false,
       isLoading: false,
       statusText: '在线',
-      conversationHistory: [] // 存储对话历史用于上下文
+      conversationHistory: [], // 存储对话历史用于上下文
+      currentStreamingMessage: null // 新增：当前正在流式输出的消息
     }
   },
   computed: {
@@ -110,13 +111,12 @@ export default {
     async sendMessage() {
       if (!this.canSend) return
 
-      const content = this.inputText.trim()
+      const userMessage = this.inputText.trim()
       
       // 添加用户消息
-      this.addMessage(content, 'user')
+      this.addMessage(userMessage, 'user')
       
       // 清空输入框
-      const userMessage = this.inputText
       this.inputText = ''
       
       // 更新状态
@@ -125,22 +125,77 @@ export default {
       this.statusText = '思考中'
 
       try {
-        // 调用真实的DeepSeek API
-        const response = await DeepSeekService.sendMessage(userMessage, this.conversationHistory)
+        // 先创建一个空的机器人消息，用于流式更新
+        const botMessage = {
+          id: 'streaming-' + Date.now(),
+          content: '',
+          sender: 'bot',
+          timestamp: new Date(),
+          isStreaming: true // 标记为流式消息
+        }
+        this.messages.push(botMessage)
+        this.currentStreamingMessage = botMessage
         
-        // 添加AI回复
-        this.addMessage(response, 'bot')
+        // 滚动到底部
+        this.scrollToBottom()
+
+        let fullResponse = ''
         
-        // 更新对话历史（保持最近的10轮对话）
-        this.updateConversationHistory(userMessage, response)
+        // 调用流式DeepSeek API
+        await DeepSeekService.sendMessageStream(
+          userMessage,
+          // 流式数据回调函数
+          (chunk, fullText) => {
+            fullResponse = fullText
+            // 实时更新消息内容
+            this.updateStreamingMessage(fullText)
+          },
+          this.conversationHistory
+        )
+
+        // 流式输出完成，更新最终消息
+        this.finalizeStreamingMessage(fullResponse)
+        
+        // 更新对话历史
+        this.updateConversationHistory(userMessage, fullResponse)
         
       } catch (error) {
-        this.addMessage(`抱歉，出现了错误：${error.message}`, 'bot')
+        // 如果出错，显示错误信息
+        if (this.currentStreamingMessage) {
+          this.currentStreamingMessage.content = `抱歉，出现了错误：${error.message}`
+          this.currentStreamingMessage.isStreaming = false
+        } else {
+          this.addMessage(`抱歉，出现了错误：${error.message}`, 'bot')
+        }
         console.error('API调用失败:', error)
       } finally {
         this.isTyping = false
         this.isLoading = false
         this.statusText = '在线'
+        this.currentStreamingMessage = null
+      }
+    },
+
+    // 实时更新流式消息内容
+    updateStreamingMessage(content) {
+      if (this.currentStreamingMessage) {
+        this.currentStreamingMessage.content = content
+        // 触发响应式更新
+        this.messages = [...this.messages]
+        // 滚动到底部
+        this.scrollToBottom()
+      }
+    },
+
+    // 流式输出完成，清理状态
+    finalizeStreamingMessage(finalContent) {
+      if (this.currentStreamingMessage) {
+        this.currentStreamingMessage.content = finalContent
+        this.currentStreamingMessage.isStreaming = false
+        // 给消息一个最终ID
+        this.currentStreamingMessage.id = 'message-' + Date.now()
+        // 触发响应式更新
+        this.messages = [...this.messages]
       }
     },
 
@@ -149,7 +204,8 @@ export default {
         id: Date.now() + Math.random().toString(36).substr(2, 9),
         content,
         sender,
-        timestamp: new Date()
+        timestamp: new Date(),
+        isStreaming: false
       }
       
       this.messages.push(message)
@@ -179,7 +235,6 @@ export default {
       }
     },
 
-    // 其他方法保持不变...
     handleKeydown(event) {
       if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault()
@@ -190,6 +245,7 @@ export default {
     clearConversation() {
       this.messages = []
       this.conversationHistory = []
+      this.currentStreamingMessage = null
       this.statusText = '对话已清空'
       setTimeout(() => {
         this.statusText = '在线'

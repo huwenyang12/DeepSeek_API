@@ -35,32 +35,204 @@ export default {
     }
   },
   methods: {
-    formatText(content) {
+formatText(content) {
       if (!content) return ''
       
       let formatted = this.escapeHtml(content)
       
-      // 处理顺序很重要！
+      // 0. 特殊处理极限表达式
+      formatted = this.formatLimits(formatted)
       
-      // 1. 先处理代码块 ```code``` - 修复版本
+      // 1. 清理 LaTeX 命令
+      formatted = this.cleanLatex(formatted)
+      
+      // 2. 处理数学表达式
+      formatted = this.formatMathExpressions(formatted)
+      
+      // 3. 处理数学符号
+      formatted = this.formatMathSymbols(formatted)
+      
+      // 4. 处理数学符号（新增）
+      formatted = this.formatMathNotation(formatted)
+      
+      // 3. 先处理代码块 ```code``` - 修复版本
       formatted = this.formatCodeBlocks(formatted)
       
-      // 2. 处理列表
+      // 4. 处理列表
       formatted = this.formatLists(formatted)
       
-      // 3. 处理引用 >
+      // 5. 处理引用 >
       formatted = this.formatQuotes(formatted)
       
-      // 4. 处理内联代码 `code`
+      // 6. 处理内联代码 `code`
       formatted = this.formatInlineCode(formatted)
       
-      // 5. 处理加粗 **bold**
+      // 7. 处理加粗 **bold**
       formatted = this.formatBold(formatted)
       
-      // 6. 处理换行和段落
+      // 8. 处理换行和段落
       formatted = this.formatParagraphs(formatted)
       
       return formatted
+    },
+
+    // 专门处理极限表达式
+    formatLimits(text) {
+      return text
+        .replace(/limx → 0/g, 'lim<sub>x→0</sub>')
+        .replace(/(\w+)x → 0/g, '$1<sub>x→0</sub>')
+        .replace(/(\d)(\w)/g, '$1 $2') // 在数字和字母间加空格
+    },
+
+    formatMathSymbols(text) {
+      // 处理 LaTeX 公式和数学符号
+      return text
+        // 1. 先处理简单的数学符号
+        .replace(/\\lim/g, 'lim')
+        .replace(/\\to/g, '→')
+        .replace(/\\boxed\{([^}]+)\}/g, '答案: $1') // 处理 \boxed{}
+        
+        // 2. 处理分式 \frac{}{}
+        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1/$2')
+        
+        // 3. 处理上标 ^{}
+        .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
+        .replace(/\^(\w)/g, '<sup>$1</sup>') // 单个字符上标
+        
+        // 4. 处理下标 _{}
+        .replace(/_\{([^}]+)\}/g, '<sub>$1</sub>')
+        .replace(/_(\w)/g, '<sub>$1</sub>') // 单个字符下标
+        
+        // 5. 处理其他常见的 LaTeX 命令
+        .replace(/\\left\(/g, '(')
+        .replace(/\\right\)/g, ')')
+        .replace(/\\cdots/g, '⋯')
+        .replace(/\\vdots/g, '⋮')
+        .replace(/\\ddots/g, '⋱')
+        
+        // 6. 处理简单的括号环境
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')')
+        .replace(/\\\[/g, '[')
+        .replace(/\\\]/g, ']')
+        
+        // 7. 处理文本模式（简化）
+        .replace(/\\text\{([^}]+)\}/g, '$1')
+        
+        // 8. 清理多余的斜杠（针对你例子中的情况）
+        .replace(/([^\\])\\([a-zA-Z])/g, '$1$2') // 处理单个字母前的斜杠
+        .replace(/\\\\/g, '<br>') // 处理换行
+    },
+
+    formatMathExpressions(text) {
+      return text
+        // 处理你例子中的特定数学表达式
+        .replace(/Lleft\(([^)]+)\)/g, 'L($1)')
+        .replace(/left\(([^)]+)\)/g, '($1)')
+        .replace(/right\)/g, ')')
+        
+        // 处理积分表达式
+        .replace(/int(\d+)(\d+)/g, '∫<sub>$1</sub><sup>$2</sup>') // 处理 int06 → ∫₀⁶
+        .replace(/int(\d+)/g, '∫<sub>$1</sub>') // 处理单个数字的积分限
+        
+        // 处理分数表达式（没有花括号的frac）
+        .replace(/frac(\d+)(\d+)/g, '$1/$2') // 处理 frac13 → 1/3, frac23 → 2/3
+        
+        // 处理文本命令
+        .replace(/textN/g, 'N')
+        .replace(/text\{([^}]*)\}/g, '$1')
+        
+        // 处理数字格式
+        .replace(/(\d)\s+(\d)/g, '$1$2')
+        .replace(/(\d),(\d)/g, '$1$2')
+        
+        // 处理特定的数学函数
+        .replace(/frac\{([^}]+)\}\{([^}]+)\}/g, '$1/$2')
+        
+        // 处理上标（没有花括号的）
+        .replace(/(\w)\^(\d)/g, '$1<sup>$2</sup>') // 处理 x2 → x²
+        .replace(/(\w)\^\{(\d+)\}/g, '$1<sup>$2</sup>')
+    },
+
+    // 在 methods 中添加这个函数
+    formatMathNotation(text) {
+      return text
+        // 处理积分限
+        .replace(/int_0\^6/g, '∫<sub>0</sub><sup>6</sup>')
+        .replace(/int_(\d+)\^(\d+)/g, '∫<sub>$1</sub><sup>$2</sup>')
+        
+        // 处理希腊字母和其他符号
+        .replace(/ρ/g, 'ρ')
+        .replace(/∈/g, '∈')
+        
+        // 处理乘法符号
+        .replace(/(\d)\s*×\s*(\d)/g, '$1×$2')
+        
+        // 处理分数显示
+        .replace(/(\d)\/(\d)/g, '<span class="math-fraction">$1/$2</span>')
+    },
+
+    cleanLatex(text) {
+      // 先处理所有已知的 LaTeX 命令
+      let cleaned = text
+        .replace(/\\[a-zA-Z]+/g, (match) => {
+          // 定义已知的 LaTeX 命令映射
+          const commandMap = {
+            '\\cdot': '·', '\\times': '×', '\\div': '÷',
+            '\\Rightarrow': '⇒', '\\rightarrow': '→', 
+            '\\leftarrow': '←', '\\Leftrightarrow': '⇔',
+            '\\infty': '∞', '\\partial': '∂', '\\nabla': '∇',
+            '\\alpha': 'α', '\\beta': 'β', '\\gamma': 'γ',
+            '\\delta': 'δ', '\\theta': 'θ', '\\pi': 'π',
+            '\\sigma': 'σ', '\\omega': 'ω',
+            '\\leq': '≤', '\\geq': '≥', '\\neq': '≠',
+            '\\approx': '≈', '\\equiv': '≡', '\\propto': '∝',
+            '\\in': '∈', '\\notin': '∉', '\\subset': '⊂',
+            '\\subseteq': '⊆', '\\cup': '∪', '\\cap': '∩',
+            '\\emptyset': '∅', '\\forall': '∀', '\\exists': '∃',
+            // 添加你例子中的新命令
+            '\\implies': '⇒',
+            '\\text': '',
+            '\\left': '',
+            '\\right': '',
+            '\\mathrm': '',
+            '\\approx': '≈',
+            '\\int': '∫',
+            '\\rho': 'ρ'
+          }
+          return commandMap[match] || match.replace(/\\/, '')
+        })
+        
+      // 然后清理其他格式
+      cleaned = cleaned
+        .replace(/\\[\(\)\[\]]/g, '') // 清理括号命令，但保留 {}
+        .replace(/\\begin\{[^}]+\}/g, '')
+        .replace(/\\end\{[^}]+\}/g, '')
+        .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '$1/$2')
+        .replace(/\^\{([^}]+)\}/g, '<sup>$1</sup>')
+        .replace(/_\{([^}]+)\}/g, '<sub>$1</sub>')
+        .replace(/\\sqrt\{([^}]+)\}/g, '√$1')
+        
+      // 专门处理花括号：提取花括号中的内容
+      cleaned = cleaned
+        .replace(/\{([^}]+)\}/g, '$1') // 提取花括号中的内容
+        
+      // 清理数字中间的空格
+      cleaned = cleaned
+        .replace(/(\d)\s+(\d)/g, '$1$2') // 删除数字间的空格
+        
+      // 清理所有剩余的单个反斜杠
+      cleaned = cleaned
+        .replace(/([^\\])\\([^\\])/g, '$1$2')
+        .replace(/^\\/, '')
+        .replace(/\\$/, '')
+        // 清理 left 和 right 命令
+        .replace(/left\[/g, '[')
+        .replace(/right\]/g, ']')
+        .replace(/left\(/g, '(')
+        .replace(/right\)/g, ')')
+        
+      return cleaned
     },
     
     formatCodeBlocks(text) {

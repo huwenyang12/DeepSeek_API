@@ -39,6 +39,9 @@ formatText(content) {
       if (!content) return ''
       
       let formatted = this.escapeHtml(content)
+
+      // 0. 先处理分隔符 --- ###
+      formatted = this.formatSeparators(formatted)
       
       // 0. 特殊处理极限表达式
       formatted = this.formatLimits(formatted)
@@ -82,6 +85,21 @@ formatText(content) {
         .replace(/limx → 0/g, 'lim<sub>x→0</sub>')
         .replace(/(\w+)x → 0/g, '$1<sub>x→0</sub>')
         .replace(/(\d)(\w)/g, '$1 $2') // 在数字和字母间加空格
+    },
+
+    formatSeparators(text) {
+      return text
+        // 移除单独的 ---
+        .replace(/^---\s*$/gm, '')
+
+        // 转换标题（--- ### 或 ###）
+        .replace(/(?:---\s*)?###\s*(.+?)(?=\n|$)/g, '<br><h3 class="section-title">$1</h3>')
+
+        // 将以 * 开头的行转成带圆点的无序列表项
+        .replace(/^\s*\*\s*(.+)$/gm, '<li>$1</li>')
+
+        // 将连续的 <li> 项包进 <ul> 中（确保成对显示）
+        .replace(/(<li>[\s\S]+?<\/li>)(?!\s*<li>)/g, '<ul>$1</ul>')
     },
 
     formatMathSymbols(text) {
@@ -409,6 +427,34 @@ formatText(content) {
   font-size: 11px;
   color: #95a5a6;
   padding: 0 4px;
+}
+
+/* 章节标题样式 */
+:deep(.section-title) {
+  font-size: 1.1em;
+  font-weight: 600;
+  color: #2c3e50;
+  margin: 20px 0 12px 0;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #3498db;
+}
+
+/* 分隔线样式 */
+:deep(.section-divider) {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 16px 0;
+}
+
+:deep(ul) {
+  margin: 6px 0 6px 18px;
+  padding: 0;
+}
+
+:deep(li) {
+  line-height: 1.6;
+  font-size: 0.95rem;
+  color: #333;
 }
 
 /* 深度选择器用于格式化文本的样式 */

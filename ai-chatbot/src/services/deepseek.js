@@ -10,7 +10,7 @@ const openai = new OpenAI({
 // 配置对象，便于管理所有定制回答
 const CUSTOM_CONFIG = {
   identity: {
-    name: '小胡',
+    name: '小胡同学',
     description: '你的专属智能助理',
     responses: {
       'who are you': '我是{name}，{description}！有什么可以帮你的吗？',

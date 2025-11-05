@@ -5,9 +5,10 @@
       <!-- 极简头部 -->
       <div class="chat-header">
         <div class="header-content">
-          <div class="app-logo">Hu</div>
+          <div class="app-logo">
+            <img src="@/assets/avatar.png" alt="头像" class="avatar-img" />
+          </div>
           <div class="header-info">
-            <h1>助理</h1>
             <span class="status-dot" :class="statusClass"></span>
             <span class="status-text">{{ statusText }}</span>
           </div>
@@ -27,9 +28,8 @@
         <!-- 欢迎消息 -->
         <div v-if="messages.length === 0" class="welcome-message">
           <div class="welcome-content">
-            <div class="welcome-icon">💬</div>
-            <h3>欢迎使用</h3>
-            <p>我是您的AI助手，随时为您提供帮助</p>
+            <div class="welcome-icon">{{ sleepText }}</div>
+            <!-- <h3>🛏️睡觉ing...</h3> -->
           </div>
         </div>
         
@@ -91,7 +91,9 @@ export default {
       inputText: '',
       isTyping: false,
       isLoading: false,
-      statusText: '在线',
+      statusText: '睡觉ing...',
+      sleepText: 'zZ',
+      sleepInterval: null,
       conversationHistory: [], // 存储对话历史用于上下文
       currentStreamingMessage: null // 新增：当前正在流式输出的消息
     }
@@ -101,16 +103,17 @@ export default {
       return this.inputText.trim() && !this.isLoading
     },
     statusClass() {
-      return {
-        'status-online': !this.isLoading,
-        'status-typing': this.isLoading
+      if (this.statusText.includes('睡觉')) {
+        return 'status-sleep'
+      } else if (this.isLoading) {
+        return 'status-typing'
+      } else {
+        return 'status-online'
       }
     }
   },
   methods: {
     async sendMessage() {
-      if (!this.canSend) return
-
       const userMessage = this.inputText.trim()
       
       // 添加用户消息
@@ -283,13 +286,11 @@ export default {
     },
 
     clearConversation() {
-      this.messages = []
-      this.conversationHistory = []
-      this.currentStreamingMessage = null
-      this.statusText = '对话已清空'
-      setTimeout(() => {
-        this.statusText = '在线'
-      }, 2000)
+      this.messages = [];
+      this.conversationHistory = [];
+      this.currentStreamingMessage = null;
+      this.statusText = '睡觉ing...';
+      this.startSleepAnimation();
     },
 
     scrollToBottom() {
@@ -301,6 +302,8 @@ export default {
   },
 
   mounted() {
+    this.startSleepAnimation();
+
     this.$nextTick(() => {
       const textarea = this.$refs.textInput;
       if (textarea) {
@@ -308,7 +311,7 @@ export default {
         textarea.focus();
       }
     });
-  }
+  },
 }
 </script>
 
@@ -318,6 +321,29 @@ export default {
   max-width: 800px;
   height: 90vh;
 }
+.status-sleep {
+  background: #3498db; /* 温柔的蓝色 */
+  animation: gentle-blink 3s infinite ease-in-out;
+}
+
+@keyframes gentle-blink {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+.welcome-icon {
+  font-size: 48px;
+  opacity: 0.8;
+  transition: all 0.4s ease-in-out; /* 切换平滑 */
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+
 
 .chat-container {
   background: white;
@@ -349,15 +375,21 @@ export default {
 .app-logo {
   width: 40px;
   height: 40px;
-  background: #2c3e50;
-  color: white;
-  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 14px;
+  background: none;   /* 不加背景 */
+  border-radius: 0;   /* 不要圆角 */
+  overflow: visible;  /* 允许完整显示 */
 }
+
+.avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* 保持比例不裁剪 */
+  border-radius: 0;    /* 不要圆角 */
+}
+
 
 .header-info {
   display: flex;
